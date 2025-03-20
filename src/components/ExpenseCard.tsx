@@ -11,13 +11,22 @@ import {
   FileText, 
   Heart, 
   GraduationCap, 
-  MoreHorizontal 
+  MoreHorizontal,
+  Repeat,
+  Info
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ExpenseCardProps {
   transaction: Transaction;
   className?: string;
   style?: React.CSSProperties;
+  onSplitExpense?: (transaction: Transaction) => void;
 }
 
 const CategoryIconMap = {
@@ -31,8 +40,13 @@ const CategoryIconMap = {
   other: MoreHorizontal
 };
 
-const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className, style }) => {
-  const { category, amount, description, date, merchant } = transaction;
+const ExpenseCard: React.FC<ExpenseCardProps> = ({ 
+  transaction, 
+  className, 
+  style,
+  onSplitExpense 
+}) => {
+  const { category, amount, description, date, merchant, isRecurring } = transaction;
   const categoryInfo = categories[category];
   const IconComponent = CategoryIconMap[category];
   
@@ -49,6 +63,12 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className, style
     hour12: true
   });
 
+  const handleSplitClick = () => {
+    if (onSplitExpense) {
+      onSplitExpense(transaction);
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -64,14 +84,28 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className, style
         
         <div className="flex-grow">
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex items-center gap-1.5">
               <h3 className="font-medium text-gray-900 mb-0.5">{merchant}</h3>
-              <p className="text-sm text-gray-500 line-clamp-1">{description}</p>
+              {isRecurring && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-primary">
+                        <Repeat className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Recurring expense</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             <span className="font-semibold">
               {formatCurrency(amount)}
             </span>
           </div>
+          <p className="text-sm text-gray-500 line-clamp-1">{description}</p>
           
           <div className="flex items-center mt-2 text-xs text-gray-400">
             <span className="inline-flex items-center gap-1">
@@ -79,11 +113,19 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className, style
               <span className="w-1 h-1 bg-gray-300 rounded-full mx-1"></span>
               <span>{formattedTime}</span>
             </span>
-            <span className="ml-auto">
+            <div className="ml-auto flex items-center gap-1.5">
               <span className={`inline-flex px-2 py-0.5 rounded-full text-xs bg-gradient-to-r ${categoryInfo.color} bg-opacity-10 text-white`}>
                 {categoryInfo.label}
               </span>
-            </span>
+              {amount > 100 && (
+                <button 
+                  onClick={handleSplitClick}
+                  className="ml-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+                >
+                  Split
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

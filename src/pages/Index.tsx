@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PieChart, 
@@ -20,7 +19,9 @@ import {
   AlertTriangle,
   ArrowUpRight,
   BarChart3,
-  Calendar
+  Calendar,
+  Bell,
+  Target
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import ExpenseCard from '@/components/ExpenseCard';
 import RecommendationAlert from '@/components/RecommendationAlert';
 import SavingsLock from '@/components/SavingsLock';
 import TransactionForm from '@/components/TransactionForm';
+import ExpenseSplitModal from '@/components/ExpenseSplitModal';
 import { 
   Transaction, 
   Category, 
@@ -57,6 +59,11 @@ const Index = () => {
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const refsMap = useRef<Map<string, HTMLDivElement>>(new Map());
   
+  // New state variables for expense splitting
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [transactionToSplit, setTransactionToSplit] = useState<Transaction | null>(null);
+  const [hasNotifications, setHasNotifications] = useState(false);
+  
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
@@ -79,6 +86,11 @@ const Index = () => {
       }, 3000);
       
       setIsPageLoaded(true);
+      
+      // Simulate notifications
+      setTimeout(() => {
+        setHasNotifications(true);
+      }, 5000);
     };
     
     loadData();
@@ -136,9 +148,32 @@ const Index = () => {
     }, 500);
   };
 
+  // New handlers for expense splitting
+  const handleSplitExpense = (transaction: Transaction) => {
+    setTransactionToSplit(transaction);
+    setShowSplitModal(true);
+  };
+  
+  const handleSplitComplete = () => {
+    // In a real app, this would update the transaction in the database
+    setTransactionToSplit(null);
+  };
+
+  const handleNotificationsClick = () => {
+    setHasNotifications(false);
+    toast({
+      title: "Notifications",
+      description: "You have 3 new spending alerts and 2 pending split expenses.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Header onAddTransaction={() => setShowAddTransaction(true)} />
+      <Header 
+        onAddTransaction={() => setShowAddTransaction(true)} 
+        hasNotifications={hasNotifications}
+        onNotificationsClick={handleNotificationsClick}
+      />
       
       <main className="pt-20 px-4 mx-auto max-w-4xl">
         {/* Dashboard overview section */}
@@ -158,7 +193,6 @@ const Index = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Weekly spending chart */}
             <div 
               className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-5 h-[300px] animate-slide-up"
               style={{ animationDelay: '0.1s' }}
@@ -214,7 +248,6 @@ const Index = () => {
               </div>
             </div>
             
-            {/* Spending by category */}
             <div 
               className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-5 h-[300px] animate-slide-up"
               style={{ animationDelay: '0.2s' }}
@@ -310,6 +343,7 @@ const Index = () => {
                 transaction={transaction} 
                 className="animate-scale-in"
                 style={{ animationDelay: `${index * 0.1}s` }}
+                onSplitExpense={handleSplitExpense}
               />
             ))}
             
@@ -320,11 +354,101 @@ const Index = () => {
                   className="mt-4"
                   onClick={() => setShowAddTransaction(true)}
                 >
-                  <CreditCard className="mr-2 h-4 w-4" />
+                  <CreditCard className="h-4 w-4 mr-2" />
                   <span>Add Transaction</span>
                 </Button>
               </div>
             )}
+          </div>
+        </section>
+        
+        {/* Monthly goals section - New! (Addressing gamification from could-have features) */}
+        <section 
+          className={`mb-10 transition-all duration-700 transform ${
+            isPageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+          }`}
+          style={{ transitionDelay: '0.25s' }}
+        >
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">Monthly Goals</h2>
+              <p className="text-sm text-gray-500">Track your financial achievements</p>
+            </div>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Target className="h-4 w-4" />
+              <span>Set New Goal</span>
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-green-100 p-1.5 rounded-md">
+                    <Coffee className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="font-medium text-sm">Dining Budget</span>
+                </div>
+                <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                  On track
+                </span>
+              </div>
+              
+              <div className="h-2 bg-gray-100 rounded-full mb-2 overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full" style={{ width: '65%' }}></div>
+              </div>
+              
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>₹6,500 spent</span>
+                <span>₹10,000 budget</span>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-amber-100 p-1.5 rounded-md">
+                    <ShoppingBag className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <span className="font-medium text-sm">Shopping Limit</span>
+                </div>
+                <span className="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
+                  Warning
+                </span>
+              </div>
+              
+              <div className="h-2 bg-gray-100 rounded-full mb-2 overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full" style={{ width: '85%' }}></div>
+              </div>
+              
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>₹8,500 spent</span>
+                <span>₹10,000 budget</span>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/10 p-1.5 rounded-md">
+                    <Target className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-medium text-sm">Savings Goal</span>
+                </div>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  In progress
+                </span>
+              </div>
+              
+              <div className="h-2 bg-gray-100 rounded-full mb-2 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full" style={{ width: '40%' }}></div>
+              </div>
+              
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>₹20,000 saved</span>
+                <span>₹50,000 goal</span>
+              </div>
+            </div>
           </div>
         </section>
         
@@ -427,6 +551,15 @@ const Index = () => {
         <TransactionForm 
           onClose={() => setShowAddTransaction(false)}
           onAddTransaction={handleAddTransaction}
+        />
+      )}
+      
+      {/* Show expense split modal */}
+      {showSplitModal && transactionToSplit && (
+        <ExpenseSplitModal
+          transaction={transactionToSplit}
+          onClose={() => setShowSplitModal(false)}
+          onSplitComplete={handleSplitComplete}
         />
       )}
     </div>
