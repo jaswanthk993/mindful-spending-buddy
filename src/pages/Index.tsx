@@ -23,7 +23,10 @@ import {
   Bell,
   Target,
   Coffee,
-  ShoppingBag
+  ShoppingBag,
+  Brain,
+  PiggyBank,
+  Lightbulb
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -42,11 +45,17 @@ import {
 } from '@/utils/mockData';
 import { 
   getCategoryDistribution, 
-  getSpendingRecommendations 
+  getSpendingRecommendations,
+  detectRecurringSpending
 } from '@/utils/categoryUtils';
-import { formatCurrency } from '@/utils/savingsCalculator';
+import { 
+  formatCurrency,
+  calculateAnnualSavings,
+  calculateInvestmentGrowth 
+} from '@/utils/savingsCalculator';
 
 const Index = () => {
+  // State variables
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
@@ -65,6 +74,23 @@ const Index = () => {
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [transactionToSplit, setTransactionToSplit] = useState<Transaction | null>(null);
   const [hasNotifications, setHasNotifications] = useState(false);
+  
+  // New state for ML-powered insights
+  const [aiInsights, setAiInsights] = useState<{
+    weeklyPattern: string | null;
+    savingOpportunity: number | null;
+    projectedSavings: number | null;
+    frequentCategories: Category[];
+  }>({
+    weeklyPattern: null,
+    savingOpportunity: null,
+    projectedSavings: null,
+    frequentCategories: []
+  });
+  
+  // New state for savings lock
+  const [savingsGoal, setSavingsGoal] = useState(50000);
+  const [currentSavings, setCurrentSavings] = useState(20000);
   
   // Load initial data
   useEffect(() => {
@@ -93,6 +119,47 @@ const Index = () => {
       setTimeout(() => {
         setHasNotifications(true);
       }, 5000);
+      
+      // Generate AI insights
+      setTimeout(() => {
+        const transactions = getRecentTransactions();
+        
+        // Find most frequent spending day
+        const dayCount = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
+        transactions.forEach(t => {
+          const day = new Date(t.date).getDay();
+          dayCount[day]++;
+        });
+        
+        const maxDay = dayCount.indexOf(Math.max(...dayCount));
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        
+        // Find frequent categories
+        const categoryCount: {[key in Category]?: number} = {};
+        transactions.forEach(t => {
+          categoryCount[t.category] = (categoryCount[t.category] || 0) + 1;
+        });
+        
+        const frequentCategories = Object.entries(categoryCount)
+          .filter(([_, count]) => count >= 2)
+          .map(([category]) => category as Category);
+        
+        // Calculate potential savings
+        const foodTransactions = transactions.filter(t => t.category === 'food');
+        const avgFoodSpend = foodTransactions.reduce((sum, t) => sum + t.amount, 0) / 
+                            (foodTransactions.length || 1);
+        
+        // Generate 5-year projection with 8% annual return
+        const monthlySavings = Math.round(avgFoodSpend * 4);
+        const projectedSavings = calculateInvestmentGrowth(monthlySavings, 5);
+        
+        setAiInsights({
+          weeklyPattern: days[maxDay],
+          savingOpportunity: Math.round(avgFoodSpend * 0.3),
+          projectedSavings,
+          frequentCategories
+        });
+      }, 1500);
     };
     
     loadData();
@@ -114,11 +181,12 @@ const Index = () => {
     description: string;
     merchant: string;
     category: Category;
+    isRecurring?: boolean;
   }) => {
     const transaction: Transaction = {
       id: `temp-${Date.now()}`,
       date: new Date().toISOString(),
-      isRecurring: false,
+      isRecurring: newTransaction.isRecurring || false,
       ...newTransaction
     };
     
@@ -128,6 +196,21 @@ const Index = () => {
       title: "Transaction added",
       description: `Added ${formatCurrency(newTransaction.amount)} at ${newTransaction.merchant}`,
     });
+    
+    // If this is a recurring transaction in a discretionary category,
+    // show a recommendation after a short delay
+    if (transaction.isRecurring && 
+        ['food', 'entertainment', 'shopping'].includes(transaction.category)) {
+      setTimeout(() => {
+        const annualAmount = calculateAnnualSavings(transaction.amount, 'weekly');
+        setCurrentRecommendation({
+          merchant: transaction.merchant,
+          amount: transaction.amount,
+          annualSavings: annualAmount
+        });
+        setShowRecommendation(true);
+      }, 1500);
+    }
   };
 
   const handleSaveInstead = () => {
@@ -140,6 +223,9 @@ const Index = () => {
   
   const handleSavingsComplete = () => {
     setShowSavingsLock(false);
+    
+    // Update savings goal progress
+    setCurrentSavings(prev => prev + savingsAmount);
     
     // Add an artificial delay before showing toast
     setTimeout(() => {
@@ -168,6 +254,13 @@ const Index = () => {
       description: "You have 3 new spending alerts and 2 pending split expenses.",
     });
   };
+  
+  // New handler for locking savings from transactions
+  const handleLockSavings = (transaction: Transaction) => {
+    setSavingsAmount(Math.floor(transaction.amount));
+    setShowRecommendation(false);
+    setShowSavingsLock(true);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -186,13 +279,47 @@ const Index = () => {
         >
           <div className="text-center mb-8 mt-4">
             <div className="inline-block bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium mb-3 animate-fade-in">
-              Your spending buddy
+              Your AI-powered spending buddy
             </div>
             <h1 className="text-3xl font-bold mb-3">Financial Overview</h1>
             <p className="text-gray-500 max-w-md mx-auto">
               Track your spending habits and make mindful financial decisions.
             </p>
           </div>
+          
+          {/* New AI Insight Banner */}
+          {aiInsights.weeklyPattern && (
+            <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-2 rounded-lg text-white">
+                  <Brain className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-800">AI-Powered Insight</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    You tend to spend more on <span className="font-medium">{aiInsights.weeklyPattern}s</span>. 
+                    {aiInsights.savingOpportunity && (
+                      <span> Reducing dining expenses by just {formatCurrency(aiInsights.savingOpportunity)} weekly 
+                      could save you {formatCurrency(calculateAnnualSavings(aiInsights.savingOpportunity, 'weekly'))} annually.</span>
+                    )}
+                  </p>
+                  
+                  {aiInsights.projectedSavings && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full flex items-center gap-1">
+                        <PiggyBank className="h-3 w-3" />
+                        <span>5-Year Projection: {formatCurrency(aiInsights.projectedSavings)}</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2">
+                        <span>Learn More</span>
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div 
@@ -346,6 +473,7 @@ const Index = () => {
                 className="animate-scale-in"
                 style={{ animationDelay: `${index * 0.1}s` }}
                 onSplitExpense={handleSplitExpense}
+                onLockSavings={handleLockSavings}
               />
             ))}
             
@@ -429,6 +557,7 @@ const Index = () => {
               </div>
             </div>
             
+            {/* Enhanced Savings Goal Card with UPI Lock Feature */}
             <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-2">
@@ -438,18 +567,31 @@ const Index = () => {
                   <span className="font-medium text-sm">Savings Goal</span>
                 </div>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                  In progress
+                  {Math.round((currentSavings / savingsGoal) * 100)}% complete
                 </span>
               </div>
               
               <div className="h-2 bg-gray-100 rounded-full mb-2 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full" style={{ width: '40%' }}></div>
+                <div 
+                  className="h-full bg-gradient-to-r from-primary to-accent rounded-full" 
+                  style={{ width: `${Math.min(100, (currentSavings / savingsGoal) * 100)}%` }}
+                ></div>
               </div>
               
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>₹20,000 saved</span>
-                <span>₹50,000 goal</span>
+              <div className="flex justify-between text-xs text-gray-500 mb-3">
+                <span>{formatCurrency(currentSavings)} saved</span>
+                <span>{formatCurrency(savingsGoal)} goal</span>
               </div>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full text-xs flex items-center justify-center gap-1.5"
+                onClick={() => setShowSavingsLock(true)}
+              >
+                <PiggyBank className="h-3.5 w-3.5" />
+                <span>Lock in Savings</span>
+              </Button>
             </div>
           </div>
         </section>
@@ -478,6 +620,23 @@ const Index = () => {
                   <h3 className="font-medium">Spending Trends</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     Your weekend spending is 40% higher than weekdays. Consider setting a weekend budget.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* New ML-powered insight card */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm card-hover">
+              <div className="flex items-start gap-3">
+                <div className="bg-purple-100 text-purple-600 p-2 rounded-lg">
+                  <Lightbulb className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Smart Suggestion</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {aiInsights.frequentCategories.includes('food') ? 
+                      "Our AI detected you frequently spend on dining. Try meal prepping on Sundays to reduce food expenses by up to 30%." :
+                      "Set up automatic transfers to your savings account right after payday to build savings without effort."}
                   </p>
                 </div>
               </div>

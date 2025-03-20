@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, Loader2, CreditCard } from 'lucide-react';
+import { X, Loader2, CreditCard, Sparkles, Brain } from 'lucide-react';
 import { Category, categories } from '@/utils/mockData';
 import { categorizeTransaction } from '@/utils/categoryUtils';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ interface TransactionFormProps {
     description: string;
     merchant: string;
     category: Category;
+    isRecurring?: boolean;
   }) => void;
 }
 
@@ -23,14 +24,27 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onClose, onAddTransac
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState<Category | null>(null);
+  const [isRecurring, setIsRecurring] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [similarTransactions, setSimilarTransactions] = useState<string[]>([]);
   
   React.useEffect(() => {
     // Animate in
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);
   }, []);
+
+  // Auto-categorize whenever description or merchant changes
+  useEffect(() => {
+    if (description.trim() || merchant.trim()) {
+      const combinedText = `${description} ${merchant}`.trim();
+      if (combinedText.length > 3) {
+        handlePredictCategory();
+      }
+    }
+  }, [description, merchant]);
 
   const handleClose = () => {
     setIsVisible(false);
@@ -39,12 +53,35 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onClose, onAddTransac
   };
 
   const handlePredictCategory = () => {
-    if (description.trim() && amount) {
-      const predictedCategory = categorizeTransaction(
-        description, 
-        parseFloat(amount)
-      );
-      setCategory(predictedCategory);
+    if ((description.trim() || merchant.trim()) && amount) {
+      setIsPredicting(true);
+      
+      setTimeout(() => {
+        const predictedCategory = categorizeTransaction(
+          `${description} ${merchant}`.trim(), 
+          parseFloat(amount || '0')
+        );
+        
+        setCategory(predictedCategory);
+        
+        // Simulate finding similar transactions
+        if (merchant.trim().length > 2) {
+          const potentialSimilar = [
+            `${merchant} - Coffee and snacks`,
+            `${merchant} - Lunch`,
+            `${merchant} - Shopping`
+          ];
+          setSimilarTransactions(potentialSimilar);
+          
+          // If we find similar transactions, suggest it might be recurring
+          setIsRecurring(true);
+        } else {
+          setSimilarTransactions([]);
+          setIsRecurring(false);
+        }
+        
+        setIsPredicting(false);
+      }, 800); // Simulate ML processing time
     }
   };
 
@@ -66,6 +103,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onClose, onAddTransac
         description,
         merchant,
         category,
+        isRecurring
       });
       
       handleClose();
@@ -145,17 +183,41 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onClose, onAddTransac
                   type="button" 
                   variant="outline" 
                   onClick={handlePredictCategory}
-                  disabled={!description || !amount}
+                  disabled={(!description && !merchant) || !amount || isPredicting}
                 >
-                  Auto-categorize
+                  {isPredicting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
+              
+              {similarTransactions.length > 0 && (
+                <div className="mt-2 p-2 bg-amber-50 rounded-md text-xs">
+                  <div className="flex items-center gap-1 text-amber-700 mb-1">
+                    <Brain className="h-3.5 w-3.5" />
+                    <span className="font-medium">AI detected similar transactions:</span>
+                  </div>
+                  <ul className="pl-4 text-amber-600 list-disc">
+                    {similarTransactions.map((transaction, index) => (
+                      <li key={index}>{transaction}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             
-            <div className="mb-5">
-              <Label className="mb-1.5 block text-sm">
-                Category
-              </Label>
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-1.5">
+                <Label className="text-sm">Category</Label>
+                {isPredicting && (
+                  <span className="text-xs text-primary flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Predicting...
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-4 gap-2">
                 {Object.entries(categories).map(([key, { label, color }]) => (
                   <Button
@@ -172,6 +234,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onClose, onAddTransac
                     <span className="text-xs font-normal">{label}</span>
                   </Button>
                 ))}
+              </div>
+            </div>
+            
+            <div className="mb-5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="isRecurring" className="text-sm cursor-pointer">
+                  This is a recurring expense
+                </Label>
               </div>
             </div>
             

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Transaction, categories } from '@/utils/mockData';
@@ -12,7 +13,9 @@ import {
   GraduationCap, 
   MoreHorizontal,
   Repeat,
-  Info
+  Info,
+  PiggyBank,
+  Lock
 } from 'lucide-react';
 import {
   Tooltip,
@@ -26,6 +29,7 @@ interface ExpenseCardProps {
   className?: string;
   style?: React.CSSProperties;
   onSplitExpense?: (transaction: Transaction) => void;
+  onLockSavings?: (transaction: Transaction) => void;
 }
 
 const CategoryIconMap = {
@@ -43,7 +47,8 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({
   transaction, 
   className, 
   style,
-  onSplitExpense 
+  onSplitExpense,
+  onLockSavings
 }) => {
   const { category, amount, description, date, merchant, isRecurring } = transaction;
   const categoryInfo = categories[category];
@@ -68,10 +73,20 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({
     }
   };
 
+  const handleLockSavingsClick = () => {
+    if (onLockSavings) {
+      onLockSavings(transaction);
+    }
+  };
+
+  // Determine if this is a recurring pattern that could be an opportunity for saving
+  const isFrequentExpense = isRecurring && category !== 'bills';
+
   return (
     <div 
       className={cn(
         'relative overflow-hidden p-4 rounded-xl bg-white border border-gray-100 transition-all duration-300 card-hover',
+        isFrequentExpense ? 'border-l-4 border-l-amber-400' : '',
         className
       )}
       style={style}
@@ -99,6 +114,20 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({
                   </Tooltip>
                 </TooltipProvider>
               )}
+              {isFrequentExpense && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-amber-500">
+                        <Info className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[200px]">
+                      <p className="text-xs">This appears to be a frequent expense. Consider saving this amount instead!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             <span className="font-semibold">
               {formatCurrency(amount)}
@@ -116,14 +145,27 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({
               <span className={`inline-flex px-2 py-0.5 rounded-full text-xs bg-gradient-to-r ${categoryInfo.color} bg-opacity-10 text-white`}>
                 {categoryInfo.label}
               </span>
-              {amount > 100 && (
-                <button 
-                  onClick={handleSplitClick}
-                  className="ml-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
-                >
-                  Split
-                </button>
-              )}
+              
+              <div className="flex gap-1">
+                {isFrequentExpense && (
+                  <button 
+                    onClick={handleLockSavingsClick}
+                    className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1"
+                  >
+                    <PiggyBank className="h-3 w-3" />
+                    <span>Save</span>
+                  </button>
+                )}
+                
+                {amount > 100 && (
+                  <button 
+                    onClick={handleSplitClick}
+                    className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  >
+                    Split
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
