@@ -21,7 +21,9 @@ import {
   BarChart3,
   Calendar,
   Bell,
-  Target
+  Target,
+  Coffee,
+  ShoppingBag
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';

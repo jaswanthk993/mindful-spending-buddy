@@ -11,9 +11,15 @@ import {
 
 interface HeaderProps {
   onAddTransaction: () => void;
+  hasNotifications?: boolean;
+  onNotificationsClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAddTransaction }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  onAddTransaction,
+  hasNotifications = false,
+  onNotificationsClick
+}) => {
   const [scrolled, setScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -64,9 +70,12 @@ const Header: React.FC<HeaderProps> = ({ onAddTransaction }) => {
             variant="ghost" 
             size="icon" 
             className="relative"
+            onClick={onNotificationsClick}
           >
             <BellIcon className="h-5 w-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full"></span>
+            {hasNotifications && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full"></span>
+            )}
           </Button>
           
           <Button
