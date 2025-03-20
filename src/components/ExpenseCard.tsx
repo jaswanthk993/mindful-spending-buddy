@@ -17,6 +17,7 @@ import {
 interface ExpenseCardProps {
   transaction: Transaction;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const CategoryIconMap = {
@@ -30,7 +31,7 @@ const CategoryIconMap = {
   other: MoreHorizontal
 };
 
-const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className }) => {
+const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className, style }) => {
   const { category, amount, description, date, merchant } = transaction;
   const categoryInfo = categories[category];
   const IconComponent = CategoryIconMap[category];
@@ -54,6 +55,7 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({ transaction, className }) => 
         'relative overflow-hidden p-4 rounded-xl bg-white border border-gray-100 transition-all duration-300 card-hover',
         className
       )}
+      style={style}
     >
       <div className="flex items-start gap-3">
         <div className={`bg-gradient-to-br ${categoryInfo.color} p-2.5 rounded-lg text-white flex-shrink-0`}>
